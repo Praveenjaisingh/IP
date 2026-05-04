@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IP + GPS Location Finder</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Poppins',sans-serif;
+}
+
+body{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(135deg,#0f172a,#1e293b,#334155);
+    padding:20px;
+}
+
+.container{
+    width:100%;
+    max-width:500px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.15);
+    backdrop-filter:blur(12px);
+    border-radius:22px;
+    padding:35px 30px;
+    box-shadow:0 20px 45px rgba(0,0,0,0.25);
+    color:#fff;
+}
+
+.top{
+    text-align:center;
+    margin-bottom:30px;
+}
+
+.top h1{
+    font-size:30px;
+    font-weight:700;
+    margin-bottom:8px;
+}
+
+.top p{
+    color:#cbd5e1;
+    font-size:14px;
+}
+
+.input-group{
+    margin-bottom:15px;
+}
+
+label{
+    display:block;
+    margin-bottom:8px;
+    font-size:14px;
+    font-weight:500;
+}
+
+input{
+    width:100%;
+    padding:15px 18px;
+    border:none;
+    outline:none;
+    border-radius:14px;
+    background:rgba(255,255,255,0.12);
+    color:#fff;
+    font-size:15px;
+}
+
+input::placeholder{
+    color:#cbd5e1;
+}
+
+button{
+    width:100%;
+    padding:15px;
+    border:none;
+    border-radius:14px;
+    background:linear-gradient(135deg,#06b6d4,#3b82f6);
+    color:#fff;
+    font-size:16px;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.3s ease;
+    margin-top:10px;
+}
+
+button:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 20px rgba(59,130,246,0.35);
+}
+
+.secondary-btn{
+    background:linear-gradient(135deg,#22c55e,#16a34a);
+}
+
+button:disabled{
+    opacity:0.7;
+    cursor:not-allowed;
+}
+
+.result{
+    margin-top:25px;
+    display:none;
+    background:rgba(255,255,255,0.08);
+    padding:20px;
+    border-radius:16px;
+}
+
+.row{
+    display:flex;
+    justify-content:space-between;
+    padding:10px 0;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    gap:15px;
+}
+
+.row:last-child{
+    border-bottom:none;
+}
+
+.key{
+    color:#94a3b8;
+    font-size:14px;
+}
+
+.value{
+    font-weight:600;
+    text-align:right;
+    font-size:14px;
+    word-break:break-word;
+}
+
+.error{
+    margin-top:15px;
+    color:#fca5a5;
+    font-size:14px;
+    text-align:center;
+}
+
+.loader{
+    display:none;
+    text-align:center;
+    margin-top:15px;
+    color:#cbd5e1;
+    font-size:14px;
+}
+
+.footer{
+    margin-top:25px;
+    text-align:center;
+    font-size:12px;
+    color:#94a3b8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="top">
+        <h1>🌍 Location Finder</h1>
+        <p>IP + GPS based location detection</p>
+    </div>
+
+    <!-- IP INPUT -->
+    <div class="input-group">
+        <label>Enter IP Address</label>
+        <input type="text" id="ip" placeholder="Example: 8.8.8.8">
+    </div>
+
+    <button onclick="getLocation()" id="btn">Find IP Location</button>
+
+    <button class="secondary-btn" onclick="autoDetect()">Use My Public IP</button>
+
+    <button class="secondary-btn" onclick="getGPSLocation()">
+        Use My GPS Location
+    </button>
+
+    <div class="loader" id="loader">Fetching location...</div>
+    <div class="error" id="error"></div>
+
+    <div class="result" id="result">
+        <div class="row"><span class="key">IP / Source</span><span class="value" id="rip"></span></div>
+        <div class="row"><span class="key">Country</span><span class="value" id="country"></span></div>
+        <div class="row"><span class="key">Region</span><span class="value" id="region"></span></div>
+        <div class="row"><span class="key">City</span><span class="value" id="city"></span></div>
+        <div class="row"><span class="key">ZIP</span><span class="value" id="zip"></span></div>
+        <div class="row"><span class="key">ISP / Source</span><span class="value" id="isp"></span></div>
+        <div class="row"><span class="key">Timezone</span><span class="value" id="timezone"></span></div>
+    </div>
+
+    <div class="footer">
+        IP + GPS Hybrid Location System
+    </div>
+
+</div>
+
+<script>
+function isPrivateIP(ip) {
+    return (
+        ip.startsWith("10.") ||
+        ip.startsWith("192.168.") ||
+        /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip) ||
+        ip === "127.0.0.1" ||
+        ip === "::1"
+    );
+}
+
+/* -----------------------------
+   AUTO DETECT PUBLIC IP
+------------------------------*/
+async function autoDetect() {
+    const error = document.getElementById("error");
+    const ipInput = document.getElementById("ip");
+
+    error.innerText = "";
+
+    try {
+        const res = await fetch("https://api.ipify.org?format=json");
+        const data = await res.json();
+
+        ipInput.value = data.ip;
+        getLocation();
+    } catch (err) {
+        error.innerText = "Unable to detect public IP";
+    }
+}
+
+/* -----------------------------
+   IP LOCATION
+------------------------------*/
+async function getLocation() {
+
+    const ip = document.getElementById("ip").value.trim();
+    const btn = document.getElementById("btn");
+    const loader = document.getElementById("loader");
+    const result = document.getElementById("result");
+    const error = document.getElementById("error");
+
+    error.innerText = "";
+    result.style.display = "none";
+
+    if (!ip) {
+        error.innerText = "Please enter an IP address";
+        return;
+    }
+
+    if (isPrivateIP(ip)) {
+        error.innerText = "Private IP cannot be geolocated. Use GPS instead.";
+        return;
+    }
+
+    loader.style.display = "block";
+    btn.disabled = true;
+
+    try {
+
+        const res = await fetch("/api/ip/getloc", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ ip })
+        });
+
+        const response = await res.json();
+
+        loader.style.display = "none";
+        btn.disabled = false;
+
+        if (!response || response.status === false || response.success === false) {
+            error.innerText = response.message || response.error;
+            return;
+        }
+
+        const data = response.data || response;
+
+        document.getElementById("rip").innerText = data.query || data.ip || "-";
+        document.getElementById("country").innerText = data.country || "-";
+        document.getElementById("region").innerText = data.regionName || "-";
+        document.getElementById("city").innerText = data.city || "-";
+        document.getElementById("zip").innerText = data.zip || "-";
+        document.getElementById("isp").innerText = data.isp || "-";
+        document.getElementById("timezone").innerText = data.timezone || "-";
+
+        result.style.display = "block";
+
+    } catch (err) {
+        loader.style.display = "none";
+        btn.disabled = false;
+        error.innerText = "API error";
+    }
+}
+
+/* -----------------------------
+   GPS LOCATION (NEW)
+------------------------------*/
+async function getGPSLocation() {
+
+    const loader = document.getElementById("loader");
+    const result = document.getElementById("result");
+    const error = document.getElementById("error");
+
+    error.innerText = "";
+    result.style.display = "none";
+
+    if (!navigator.geolocation) {
+        error.innerText = "GPS not supported";
+        return;
+    }
+
+    loader.style.display = "block";
+
+    navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+
+            try {
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+                );
+
+                const data = await res.json();
+
+                loader.style.display = "none";
+
+                document.getElementById("rip").innerText = "GPS";
+                document.getElementById("country").innerText = data.address?.country || "-";
+                document.getElementById("region").innerText = data.address?.state || "-";
+                document.getElementById("city").innerText = data.address?.city || data.address?.town || "-";
+                document.getElementById("zip").innerText = data.address?.postcode || "-";
+                document.getElementById("isp").innerText = "GPS Location";
+                document.getElementById("timezone").innerText = "-";
+
+                result.style.display = "block";
+
+            } catch (e) {
+                error.innerText = "Reverse geocoding failed";
+            }
+        },
+        (err) => {
+            loader.style.display = "none";
+            error.innerText = "Permission denied or GPS error";
+        }
+    );
+}
+</script>
+
+</body>
+</html>
