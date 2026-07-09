@@ -180,7 +180,7 @@ Backend Developer | Laravel | Node.js | React | JavaScript
 
 - OpenStreetMap
 - Leaflet.js
-- IP Geolocation API
+- IP Geolocation API 
 
 ---
 
